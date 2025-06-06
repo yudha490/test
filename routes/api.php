@@ -16,6 +16,12 @@ Route::get('/ping', function () {
     return response()->json(['status' => 'ok']);
 });
 
+// >>> TAMBAHKAN RUTE INI DI SINI <<<
+Route::get('/', function () {
+    return response()->json(['message' => 'Welcome to your API!']);
+});
+// >>> AKHIR TAMBAHAN <<<
+
 // Authenticated routes (require Sanctum authentication)
 Route::middleware('auth:sanctum')->group(function () {
     // API Controller routes
@@ -40,4 +46,3 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/rewards/exchange', [RewardController::class, 'exchange']);
     
 });
-
