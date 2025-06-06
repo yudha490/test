@@ -36,6 +36,7 @@ class ApiController extends Controller
         }
 
         // Create a new user
+        //asjaskasjasjakj
         $user = User::create([
             'username' => $request->username,
             'email' => $request->email,
