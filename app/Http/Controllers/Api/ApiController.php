@@ -167,7 +167,7 @@ class ApiController extends Controller
             // Jika `phone_number` wajib dan tidak boleh null di DB, ganti 'nullable' dengan 'required' atau hapus 'nullable'
             // dan pastikan Flutter selalu mengirimnya.
             'phone_number' => ['sometimes', 'string', 'max:20'], // Jika tidak nullable, hapus 'nullable'
-            'birth_date' => ['sometimes', 'date_format:Y-m-d\TH:i:s.u\Z', 'nullable'], // Sesuaikan dengan format dari Flutter (ISO 8601)
+            'birth_date' => ['sometimes', 'date', 'nullable'], // Sesuaikan dengan format dari Flutter (ISO 8601)
         ]);
 
         if ($validator->fails()) {
