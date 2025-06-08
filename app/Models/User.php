@@ -8,6 +8,14 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @mixin \Illuminate\Database\Eloquent\Builder // Opsional, untuk method query builder
+ * @mixin \Illuminate\Database\Eloquent\Relations\Relation // Opsional, untuk method relasi
+ * @mixin \Illuminate\Database\Eloquent\Concerns\HasAttributes // <--- INI PENTING!
+ * @mixin \Illuminate\Database\Eloquent\Concerns\HidesAttributes // Jika ada, untuk hidden attributes
+ * @mixin \Illuminate\Database\Eloquent\Concerns\GuardsAttributes // Jika ada, untuk fillable/guarded
+ */
+
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;

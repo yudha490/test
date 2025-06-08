@@ -26,18 +26,11 @@ Route::get('/', function () {
 Route::middleware('auth:sanctum')->group(function () {
     // API Controller routes
     Route::post('/logout', [ApiController::class, 'logout']);
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-    Route::patch('/user', function (Request $request) {
-        return $request->user();
-    });
-    Route::put('/user', function (Request $request) {
-        return $request->user();
-    });
-    Route::post('/user', function (Request $request) {
-        return $request->user();
-    });
+
+    Route::get('/user', [ApiController::class, 'getUserData']); // Mengarahkan ke method baru
+
+    // Memperbarui profil user yang sedang login (Menggunakan PATCH)
+    Route::patch('/user', [ApiController::class, 'updateProfile']);
 
     // UserMissionController routes
     Route::get('/missions/active', [UserMissionController::class, 'activeMissions']);
