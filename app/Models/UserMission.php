@@ -18,7 +18,7 @@ class UserMission extends Model
         'user_id',
         'mission_id',
         'proof',
-        'is_completed',
+        'status', // REVISI: Ganti is_completed dengan status
     ];
 
     /**

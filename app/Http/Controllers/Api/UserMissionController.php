@@ -7,9 +7,8 @@ use App\Models\UserMission;
 use App\Models\Mission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon; // For date handling
+use Carbon\Carbon;
 
 class UserMissionController extends Controller
 {
@@ -73,14 +72,15 @@ class UserMissionController extends Controller
                 'title' => $userMission->mission->title,
                 'description' => $userMission->mission->description,
                 'points' => $userMission->mission->points,
-                'is_completed' => $userMission->is_completed,
-                'proof' => $userMission->proof ? Storage::url($userMission->proof) : null, // Get public URL for proof
+                'status' => $userMission->status, // Mengembalikan status
+                'proof' => $userMission->proof,
             ],
         ]);
     }
 
     /**
-     * Receive proof of mission completion from the user.
+     * Receive proof of mission completion from the user as a URL.
+     * The mission status will be set to 'pending' after submission.
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  int  $userMissionId
@@ -93,7 +93,7 @@ class UserMissionController extends Controller
 
         // Validate incoming request data
         $validator = Validator::make($request->all(), [
-            'proof_url' => 'required|url|max:2048', // Ensure it's a valid URL and not too long
+            'proof_url' => 'required|url|max:2048',
         ]);
 
         // If validation fails, return error response
@@ -106,33 +106,59 @@ class UserMissionController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        // If user mission not found or already completed, return error
+        // If user mission not found, return error
         if (!$userMission) {
             return response()->json(['message' => 'User mission not found or does not belong to you.'], 404);
         }
 
-        if ($userMission->is_completed) {
-            return response()->json(['message' => 'Mission already completed.'], 400);
+        // REVISI: Cek status. Misi tidak bisa disubmit jika sudah 'pending' atau 'selesai'.
+        if ($userMission->status == 'pending' || $userMission->status == 'selesai') {
+            return response()->json(['message' => 'Mission cannot be submitted. Its status is already ' . $userMission->status . '.'], 400);
         }
 
-        // Store the uploaded proof file
+        // Save the proof URL
         $userMission->proof = $request->proof_url;
-        //$userMission->is_completed = true; // Mark as completed after proof submission
+        $userMission->status = 'pending'; // Ubah status menjadi 'pending' setelah proof disubmit
         $userMission->save();
-
-        // Add points to the user
-        //$user->points += $userMission->mission->points;
-        //$user->save();
 
         // Return success response
         return response()->json([
-            'message' => 'Mission proof submitted successfully and points added.',
+            'message' => 'Mission proof submitted successfully. Status changed to pending.',
             'user_mission' => $userMission,
-            'current_points' => $user->points,
+            'current_points' => $user->points, // Tampilkan poin pengguna saat ini (belum berubah)
             'proof_url' => $userMission->proof,
         ], 200);
+    }
 
-        // If no file was uploaded (should be caught by validation, but as a fallback)
-        return response()->json(['message' => 'No proof file provided.'], 400);
+    /**
+     * Get user missions history for a specific user, filtered by status.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $userId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getUserMissionsHistory(Request $request, $userId)
+    {
+        // Pastikan hanya user yang bersangkutan atau admin yang bisa mengakses
+        if (Auth::id() != $userId) {
+            return response()->json(['message' => 'Unauthorized access.'], 403);
+        }
+
+        $query = UserMission::with('mission')
+            ->where('user_id', $userId);
+
+        // REVISI: Filter berdasarkan status jika disediakan dalam request
+        if ($request->has('statuses') && is_array($request->input('statuses'))) {
+            $query->whereIn('status', $request->input('statuses'));
+        }
+
+        // Tambahkan pengurutan berdasarkan tanggal terbaru
+        $userMissions = $query->orderBy('created_at', 'desc')->get(); // Mengurutkan berdasarkan waktu dibuat terbaru
+
+        return response()->json([
+            'message' => 'User missions history retrieved successfully.',
+            'user_missions' => $userMissions,
+        ]);
     }
 }
+

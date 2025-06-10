@@ -26,16 +26,19 @@ Route::get('/', function () {
 Route::middleware('auth:sanctum')->group(function () {
     // API Controller routes
     Route::post('/logout', [ApiController::class, 'logout']);
-
-    Route::get('/user', [ApiController::class, 'getUserData']); // Mengarahkan ke method baru
-
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
     // Memperbarui profil user yang sedang login (Menggunakan PATCH)
-    Route::patch('/user', [ApiController::class, 'updateProfile']);
+    Route::post('/user/profile', [ApiController::class, 'updateProfile']); // REVISI: Tambahkan rute untuk update profil
 
     // UserMissionController routes
     Route::get('/missions/active', [UserMissionController::class, 'activeMissions']);
     Route::get('/missions/{userMissionId}/progress', [UserMissionController::class, 'showMissionProgress']);
     Route::post('/missions/{userMissionId}/submit-proof', [UserMissionController::class, 'submitMissionProof']);
+    // REVISI: Tambahkan rute ini untuk riwayat misi
+    Route::get('/user-missions-history/{userId}', [UserMissionController::class, 'getUserMissionsHistory']);
+
 
     // VoucherController routes
     Route::get('/vouchers', [VoucherController::class, 'index']);
@@ -46,5 +49,4 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // RewardController routes
     Route::post('/rewards/exchange', [RewardController::class, 'exchange']);
-    
 });
