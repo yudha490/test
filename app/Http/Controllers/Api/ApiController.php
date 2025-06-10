@@ -150,66 +150,46 @@ class ApiController extends Controller
      */
     public function updateProfile(Request $request)
     {
-        $user = Auth::user(); // Dapatkan user yang sedang login
+        $user = Auth::user(); // Get the authenticated user
 
-        // Validasi data yang masuk dari Flutter
+        // Validate incoming request data
         $validator = Validator::make($request->all(), [
-            'username' => ['sometimes', 'string', 'max:255'],
+            'username' => 'required|string|max:255',
             'email' => [
-                'sometimes', // Hanya validasi jika field ada di request
+                'required',
                 'string',
                 'email',
                 'max:255',
-                // Pastikan email unik, kecuali jika itu email user yang sedang login
-                Rule::unique('users')->ignore($user->id),
+                Rule::unique('users')->ignore($user->id), // Ignore current user's ID
             ],
-            // 'phone_number' => ['sometimes', 'string', 'max:20', 'nullable'],
-            // Jika `phone_number` wajib dan tidak boleh null di DB, ganti 'nullable' dengan 'required' atau hapus 'nullable'
-            // dan pastikan Flutter selalu mengirimnya.
-            'phone_number' => ['sometimes', 'string', 'max:20'], // Jika tidak nullable, hapus 'nullable'
-            'birth_date' => ['sometimes', 'date', 'nullable'], // Sesuaikan dengan format dari Flutter (ISO 8601)
+            'phone_number' => 'required|string|max:20',
+            'birth_date' => 'required|date',
+            // Password fields are optional, only validate if provided
+            'password' => 'nullable|string|min:8|confirmed',
         ]);
 
+        // If validation fails, return error response
         if ($validator->fails()) {
-            // Mengembalikan error validasi ke Flutter dengan status 422
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Siapkan data untuk di-update, hanya field yang dikirim dari request
-        $dataToUpdate = $request->only([
-            'username',
-            'email',
-            'phone_number',
-            'birth_date',
-            // Tambahkan field lain yang bisa diupdate jika ada (misal: 'profile_picture_url')
-        ]);
+        // Update user data
+        $user->username = $request->username;
+        $user->email = $request->email;
+        $user->phone_number = $request->phone_number;
+        $user->birth_date = $request->birth_date; // Assuming frontend sends YYYY-MM-DD
 
-        // Cek dan konversi birth_date jika ada
-        if (isset($dataToUpdate['birth_date'])) {
-            // Jika 'birth_date' dari Flutter adalah string ISO 8601 (contoh: 2000-01-01T00:00:00.000000Z),
-            // kamu mungkin perlu mengonversinya ke format yang diharapkan oleh database (misal: YYYY-MM-DD).
-            // Laravel Eloquent seringkali bisa mengatasinya otomatis jika tipe data di model adalah `datetime`
-            // dan di database adalah `DATE` atau `DATETIME`.
-            // Jika kamu hanya ingin tanggal (YYYY-MM-DD), gunakan:
-            // $dataToUpdate['birth_date'] = \Carbon\Carbon::parse($dataToUpdate['birth_date'])->format('Y-m-d');
-            // Atau cukup biarkan jika Laravel/Eloquent dapat mem-parsingnya secara otomatis.
-            if ($dataToUpdate['birth_date'] === null) {
-                 // Set null jika dikirim null, penting untuk kolom nullable di DB
-                 $dataToUpdate['birth_date'] = null;
-            }
+        // Update password if provided
+        if ($request->filled('password')) {
+            $user->password = Hash::make($request->password);
         }
 
+        $user->save();
 
-        // Update data user
-        $user->fill($dataToUpdate); // Mengisi model dengan data dari request
-        $user->save(); // Menyimpan perubahan ke database
-
-        // Kembalikan data user yang sudah diupdate ke Flutter
-        // $user->fresh() untuk memastikan data yang dikembalikan adalah yang terbaru dari DB
         return response()->json([
             'message' => 'Profil berhasil diperbarui.',
-            'user' => $user->fresh()
-        ], 200); // 200 OK
+            'user' => $user,
+        ], 200);
     }
 }
 

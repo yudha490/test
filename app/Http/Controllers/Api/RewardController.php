@@ -23,7 +23,7 @@ class RewardController extends Controller
 
         // Validate incoming request data
         $validator = Validator::make($request->all(), [
-            'amount' => 'required|integer|min:10000', // Minimum exchange amount, adjust as needed
+            'amount' => 'required|integer|min:5000', // Minimum exchange amount, adjust as needed
             'email' => 'required|string|email',
             'phone' => 'required|string|max:20',
         ]);
