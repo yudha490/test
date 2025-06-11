@@ -88,47 +88,55 @@ class UserMissionController extends Controller
      */
     public function submitMissionProof(Request $request, $userMissionId)
     {
-        // Get the authenticated user
-        $user = Auth::user();
+        try {
+            $user = Auth::user();
 
-        // Validate incoming request data
-        $validator = Validator::make($request->all(), [
-            'proof_url' => 'required|url|max:2048',
-        ]);
+            $validator = Validator::make($request->all(), [
+                'proof_file' => 'required|file|mimes:jpeg,png,jpg,mp4,mov,avi|max:10240',
+            ]);
 
-        // If validation fails, return error response
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            $userMission = UserMission::where('id', $userMissionId)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$userMission) {
+                return response()->json(['message' => 'User mission not found or does not belong to you.'], 404);
+            }
+
+            if ($userMission->status == 'pending' || $userMission->status == 'selesai') {
+                return response()->json(['message' => 'Mission cannot be submitted. Its status is already ' . $userMission->status . '.'], 400);
+            }
+
+            if ($request->hasFile('proof_file')) {
+                $file = $request->file('proof_file');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->move(public_path('uploads'), $filename);
+                $fileUrl = url('uploads/' . $filename);
+
+                $userMission->proof = $fileUrl;
+                $userMission->status = 'pending';
+                $userMission->save();
+
+                return response()->json([
+                    'message' => 'Mission proof uploaded successfully.',
+                    'user_mission' => $userMission,
+                    'file_url' => $fileUrl,
+                ], 200);
+            }
+
+            return response()->json(['message' => 'No file was uploaded.'], 400);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Server Error: ' . $e->getMessage(),
+            ], 500);
         }
-
-        // Find the user mission by ID and ensure it belongs to the authenticated user
-        $userMission = UserMission::where('id', $userMissionId)
-            ->where('user_id', $user->id)
-            ->first();
-
-        // If user mission not found, return error
-        if (!$userMission) {
-            return response()->json(['message' => 'User mission not found or does not belong to you.'], 404);
-        }
-
-        // REVISI: Cek status. Misi tidak bisa disubmit jika sudah 'pending' atau 'selesai'.
-        if ($userMission->status == 'pending' || $userMission->status == 'selesai') {
-            return response()->json(['message' => 'Mission cannot be submitted. Its status is already ' . $userMission->status . '.'], 400);
-        }
-
-        // Save the proof URL
-        $userMission->proof = $request->proof_url;
-        $userMission->status = 'pending'; // Ubah status menjadi 'pending' setelah proof disubmit
-        $userMission->save();
-
-        // Return success response
-        return response()->json([
-            'message' => 'Mission proof submitted successfully. Status changed to pending.',
-            'user_mission' => $userMission,
-            'current_points' => $user->points, // Tampilkan poin pengguna saat ini (belum berubah)
-            'proof_url' => $userMission->proof,
-        ], 200);
     }
+
+
 
     /**
      * Get user missions history for a specific user, filtered by status.
@@ -161,4 +169,3 @@ class UserMissionController extends Controller
         ]);
     }
 }
-
