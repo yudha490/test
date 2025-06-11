@@ -132,6 +132,8 @@ class UserMissionController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Server Error: ' . $e->getMessage(),
+                'line' => $e->getLine(),
+                'file' => $e->getFile(),
             ], 500);
         }
     }
