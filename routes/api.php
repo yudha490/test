@@ -34,8 +34,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // UserMissionController routes
     Route::get('/missions/active', [UserMissionController::class, 'activeMissions']);
-    Route::get('/missions/{userMissionId}/progress', [UserMissionController::class, 'showMissionProgress']);
-    Route::post('/missions/{userMissionId}/submit-proof', [UserMissionController::class, 'submitMissionProof']);
+    Route::post('/user-missions/{userMissionId}/submit-proof', [UserMissionController::class, 'submitMissionProof']);
+    Route::get('/user-missions/{userMissionId}/submit-proof', [UserMissionController::class, 'submitMissionProof']);
     // REVISI: Tambahkan rute ini untuk riwayat misi
     Route::get('/user-missions-history/{userId}', [UserMissionController::class, 'getUserMissionsHistory']);
 
