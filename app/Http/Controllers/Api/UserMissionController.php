@@ -4,12 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserMission;
-use App\Models\Mission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Storage; // <<< Pastikan ini ada!
+use GuzzleHttp\Client;
 
 /**
  * @mixin \Illuminate\Filesystem\FilesystemManager // Tambahkan baris ini
@@ -84,16 +83,9 @@ class UserMissionController extends Controller
     }
 
     /**
-     * Receive proof of mission completion from the user as a file upload.
-     * The mission status will be set to 'pending' after submission.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $userMissionId
-     * @return \Illuminate\Http\JsonResponse
-     */
-    /**
      * Submit proof of mission completion from the user as a file upload.
      * The mission status will be set to 'pending' after submission.
+     * Proof will be uploaded to Imgur.
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  int  $userMissionId
@@ -127,23 +119,69 @@ class UserMissionController extends Controller
             if ($request->hasFile('proof_file')) {
                 $file = $request->file('proof_file');
 
-                // --- PENTING: Gunakan Storage Facade ---
-                // Simpan file ke disk 'public' (yang menunjuk ke storage/app/public)
-                // 'mission_proofs' adalah sub-folder di dalam storage/app/public/
-                $path = $file->store('mission_proofs', 'public'); // Atau 's3' jika Anda pakai cloud storage
+                // --- INI ADALAH BAGIAN BARU UNTUK UPLOAD KE IMGUR ---
+                $client = new Client();
+                $imgurClientId = env('IMGUR_CLIENT_ID');
 
-                // Dapatkan URL publik dari file yang disimpan
-                $fileUrl = Storage::disk('public')->url($path); // Atau 's3' jika Anda pakai cloud storage
+                if (empty($imgurClientId)) {
+                    return response()->json(['message' => 'Imgur Client ID is not configured.'], 500);
+                }
 
-                $userMission->proof = $fileUrl;
-                $userMission->status = 'pending';
-                $userMission->save();
+                try {
+                    // Konversi file ke base64
+                    $base64File = base64_encode(file_get_contents($file->getRealPath()));
 
-                return response()->json([
-                    'message' => 'Bukti misi berhasil diunggah.',
-                    'user_mission' => $userMission->fresh(), // Pastikan data misi terbaru
-                    'file_url' => $fileUrl,
-                ], 200);
+                    // Kirim request POST ke Imgur API
+                    $response = $client->request('POST', 'https://api.imgur.com/3/image', [ // Imgur menerima video juga di endpoint ini
+                        'headers' => [
+                            'Authorization' => 'Client-ID ' . $imgurClientId,
+                            'Content-Type' => 'application/x-www-form-urlencoded',
+                        ],
+                        'form_params' => [
+                            'image' => $base64File,
+                            'type' => ($file->getClientMimeType() === 'video/mp4' || $file->getClientMimeType() === 'video/quicktime' || $file->getClientMimeType() === 'video/x-msvideo') ? 'video' : 'base64', // Tentukan tipe untuk Imgur
+                            // Anda bisa menambahkan 'title', 'description', dll.
+                        ],
+                    ]);
+
+                    $responseData = json_decode($response->getBody()->getContents(), true);
+
+                    if ($responseData['success'] && isset($responseData['data']['link'])) {
+                        $fileUrl = $responseData['data']['link']; // Ini adalah URL gambar/video dari Imgur
+
+                        // Catatan: Imgur tidak menyediakan API untuk menghapus file hanya dengan URL.
+                        // Jika Anda ingin menghapus bukti misi lama, Anda perlu menyimpan 'deletehash'
+                        // yang diberikan Imgur di database dan menggunakan API penghapusan Imgur.
+                        // Untuk saat ini, kita abaikan penghapusan file lama di Imgur.
+
+                        $userMission->proof = $fileUrl;
+                        $userMission->status = 'pending';
+                        $userMission->save();
+
+                        return response()->json([
+                            'message' => 'Bukti misi berhasil diunggah via Imgur!',
+                            'user_mission' => $userMission->fresh(),
+                            'file_url' => $fileUrl,
+                        ], 200);
+                    } else {
+                        return response()->json([
+                            'message' => 'Gagal mengunggah bukti misi ke Imgur.',
+                            'imgur_response' => $responseData,
+                        ], 500);
+                    }
+                } catch (\GuzzleHttp\Exception\ClientException $e) {
+                    $responseBody = $e->getResponse()->getBody()->getContents();
+                    return response()->json([
+                        'message' => 'Imgur API Error: ' . $e->getMessage(),
+                        'imgur_error_response' => json_decode($responseBody, true),
+                    ], $e->getCode());
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'message' => 'Server Error: ' . $e->getMessage(),
+                        'line' => $e->getLine(),
+                        'file' => $e->getFile(),
+                    ], 500);
+                }
             }
 
             return response()->json(['message' => 'No file was uploaded.'], 400);
