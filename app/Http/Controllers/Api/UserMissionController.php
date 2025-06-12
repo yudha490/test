@@ -112,9 +112,18 @@ class UserMissionController extends Controller
             }
 
             if ($request->hasFile('proof_file')) {
+                // ⬇️ Tambahkan pengecekan dan pembuatan folder
+                $uploadPath = public_path('uploads');
+                if (!is_dir($uploadPath)) {
+                    mkdir($uploadPath, 0777, true);
+                }
+                if (!is_writable($uploadPath)) {
+                    chmod($uploadPath, 0777);
+                }
+
                 $file = $request->file('proof_file');
                 $filename = time() . '_' . $file->getClientOriginalName();
-                $file->move(public_path('uploads'), $filename);
+                $file->move($uploadPath, $filename);
                 $fileUrl = url('uploads/' . $filename);
 
                 $userMission->proof = $fileUrl;
@@ -137,6 +146,7 @@ class UserMissionController extends Controller
             ], 500);
         }
     }
+
 
 
 
