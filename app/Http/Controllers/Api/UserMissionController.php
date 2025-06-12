@@ -91,13 +91,21 @@ class UserMissionController extends Controller
      * @param  int  $userMissionId
      * @return \Illuminate\Http\JsonResponse
      */
+    /**
+     * Submit proof of mission completion from the user as a file upload.
+     * The mission status will be set to 'pending' after submission.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $userMissionId
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function submitMissionProof(Request $request, $userMissionId)
     {
         try {
             $user = Auth::user();
 
             $validator = Validator::make($request->all(), [
-                'proof_file' => 'required|file|mimes:jpeg,png,jpg,mp4,mov,avi|max:10240', // max 10MB
+                'proof_file' => 'required|file|mimes:jpeg,png,jpg,mp4,mov,avi|max:10240', // Max 10MB
             ]);
 
             if ($validator->fails()) {
@@ -119,35 +127,21 @@ class UserMissionController extends Controller
             if ($request->hasFile('proof_file')) {
                 $file = $request->file('proof_file');
 
-                // --- GANTI SELURUH BLOK PENYIMPANAN FILE INI ---
-                // Hapus:
-                // $uploadPath = public_path('uploads');
-                // if (!is_dir($uploadPath)) {
-                //     mkdir($uploadPath, 0777, true);
-                // }
-                // if (!is_writable($uploadPath)) {
-                //     chmod($uploadPath, 0777); // <<< INI YANG HARUS DIHAPUS
-                // }
-                // $file->move($uploadPath, $filename);
-                // $fileUrl = url('uploads/' . $filename);
-
-                // Ganti dengan cara Laravel yang DISARANKAN untuk cloud:
-                // Simpan file ke disk 'public' (yang secara default menunjuk ke storage/app/public)
-                // 'uploads' adalah sub-folder di dalam storage/app/public
-                $path = $file->store('uploads', 'public');
+                // --- PENTING: Gunakan Storage Facade ---
+                // Simpan file ke disk 'public' (yang menunjuk ke storage/app/public)
+                // 'mission_proofs' adalah sub-folder di dalam storage/app/public/
+                $path = $file->store('mission_proofs', 'public'); // Atau 's3' jika Anda pakai cloud storage
 
                 // Dapatkan URL publik dari file yang disimpan
-                // Ini akan bekerja dengan baik jika php artisan storage:link sudah dijalankan di Railway
-                // Atau jika Anda mengkonfigurasi disk 'public' untuk menggunakan driver S3
-                $fileUrl = Storage::disk('public')->url($path);
+                $fileUrl = Storage::disk('public')->url($path); // Atau 's3' jika Anda pakai cloud storage
 
                 $userMission->proof = $fileUrl;
                 $userMission->status = 'pending';
                 $userMission->save();
 
                 return response()->json([
-                    'message' => 'Mission proof uploaded successfully.',
-                    'user_mission' => $userMission,
+                    'message' => 'Bukti misi berhasil diunggah.',
+                    'user_mission' => $userMission->fresh(), // Pastikan data misi terbaru
                     'file_url' => $fileUrl,
                 ], 200);
             }
@@ -161,7 +155,6 @@ class UserMissionController extends Controller
             ], 500);
         }
     }
-
     /**
      * Get user missions history for a specific user, filtered by status.
      *
