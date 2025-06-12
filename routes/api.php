@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // Memperbarui profil user yang sedang login (Menggunakan PATCH)
     Route::post('/user/profile', [ApiController::class, 'updateProfile']); // REVISI: Tambahkan rute untuk update profil
+    Route::post('/user/profile-picture', [ApiController::class, 'updateProfilePicture']);
 
     // UserMissionController routes
     Route::get('/missions/active', [UserMissionController::class, 'activeMissions']);

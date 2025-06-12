@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage; // <<< HANYA INI YANG DITAMBAHKAN DI BAGIAN ATAS
 
 class ApiController extends Controller
 {
@@ -37,7 +38,6 @@ class ApiController extends Controller
         }
 
         // Create a new user
-        //asjaskasjasjakj
         $user = User::create([
             'username' => $request->username,
             'email' => $request->email,
@@ -45,6 +45,7 @@ class ApiController extends Controller
             'phone_number' => $request->phone_number,
             'birth_date' => $request->birth_date,
             'points' => 0, // Default points for new users
+            'profile_picture' => null, // <<< HANYA INI YANG DITAMBAHKAN/DIUBAH
         ]);
 
         // Attach all existing missions to the new user
@@ -90,8 +91,8 @@ class ApiController extends Controller
 
         // Cari user berdasarkan username atau email
         $user = \App\Models\User::where('email', $request->identity)
-                ->orWhere('username', $request->identity)
-                ->first();
+            ->orWhere('username', $request->identity)
+            ->first();
 
         // Jika user tidak ditemukan atau password salah
         if (!$user || !\Hash::check($request->password, $user->password)) {
@@ -126,8 +127,6 @@ class ApiController extends Controller
         // Return success response
         return response()->json(['message' => 'Successfully logged out.']);
     }
-
-     // --- TAMBAHKAN METHOD INI ---
 
     /**
      * Get the authenticated user's data.
@@ -177,7 +176,7 @@ class ApiController extends Controller
         $user->username = $request->username;
         $user->email = $request->email;
         $user->phone_number = $request->phone_number;
-        $user->birth_date = $request->birth_date; // Assuming frontend sends YYYY-MM-DD
+        $user->birth_date = $request->birth_date;
 
         // Update password if provided
         if ($request->filled('password')) {
@@ -188,8 +187,65 @@ class ApiController extends Controller
 
         return response()->json([
             'message' => 'Profil berhasil diperbarui.',
-            'user' => $user,
+            'user' => $user->fresh(), // <<< HANYA INI YANG DIUBAH (agar foto profil terbaru ikut terupdate)
         ], 200);
     }
-}
 
+    // --- BAGIAN BARU UNTUK FOTO PROFIL ---
+    /**
+     * Update the user's profile picture.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function updateProfilePicture(Request $request)
+    {
+        $user = Auth::user();
+
+        $validator = Validator::make($request->all(), [
+            // 'profile_picture' adalah nama field yang diharapkan dari frontend (Flutter)
+            'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048', // Max 2MB (2048 KB)
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        if ($request->hasFile('profile_picture')) {
+            // Hapus gambar lama jika ada dan bukan gambar default
+            // Pastikan Anda tahu URL gambar default Anda (jika ada) untuk menghindari penghapusan yang tidak disengaja
+            if ($user->profile_picture && !str_contains($user->profile_picture, 'default_avatar.png')) {
+                // Mengonversi URL publik ke path relatif yang digunakan oleh Storage::disk('public')
+                $oldPath = str_replace(url('/storage') . '/', '', $user->profile_picture);
+                if (Storage::disk('public')->exists($oldPath)) {
+                    Storage::disk('public')->delete($oldPath);
+                }
+            }
+
+            // Simpan gambar baru ke disk 'public' (yang menunjuk ke storage/app/public)
+            // 'profile_pictures' adalah sub-folder di dalam storage/app/public
+            $path = $request->file('profile_picture')->store('profile_pictures', 'public');
+
+            // Dapatkan URL publik dari gambar yang disimpan
+            $fileUrl = Storage::disk('public')->url($path);
+
+            $user->profile_picture = $fileUrl; // Simpan URL ke kolom profile_picture di database
+            $user->save();
+
+            return response()->json([
+                'message' => 'Foto profil berhasil diperbarui!',
+                'profile_picture_url' => $fileUrl, // Mengembalikan URL baru juga
+                'user' => $user->fresh(), // Mengembalikan data user terbaru
+            ]);
+        }
+
+        return response()->json(['message' => 'Tidak ada foto profil yang diunggah.'], 400);
+    }
+    // --- AKHIR BAGIAN BARU UNTUK FOTO PROFIL ---
+
+    // Catatan: Jika ada metode lain seperti activeMissions, submitMissionProof,
+    // getUserMissionsHistory, dll. yang sebelumnya ada di UserMissionController,
+    // pastikan Anda sudah memindahkannya ke ApiController ini jika ApiController ini adalah
+    // satu-satunya controller API Anda. Kode yang Anda berikan tidak mencakupnya,
+    // jadi saya tidak menyertakannya di sini.
+}

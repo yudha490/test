@@ -9,11 +9,11 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
- * @mixin \Illuminate\Database\Eloquent\Builder // Opsional, untuk method query builder
- * @mixin \Illuminate\Database\Eloquent\Relations\Relation // Opsional, untuk method relasi
- * @mixin \Illuminate\Database\Eloquent\Concerns\HasAttributes // <--- INI PENTING!
- * @mixin \Illuminate\Database\Eloquent\Concerns\HidesAttributes // Jika ada, untuk hidden attributes
- * @mixin \Illuminate\Database\Eloquent\Concerns\GuardsAttributes // Jika ada, untuk fillable/guarded
+ * @mixin \Illuminate\Database\Eloquent\Builder
+ * @mixin \Illuminate\Database\Eloquent\Relations\Relation
+ * @mixin \Illuminate\Database\Eloquent\Concerns\HasAttributes
+ * @mixin \Illuminate\Database\Eloquent\Concerns\HidesAttributes
+ * @mixin \Illuminate\Database\Eloquent\Concerns\GuardsAttributes
  */
 
 class User extends Authenticatable
@@ -32,6 +32,7 @@ class User extends Authenticatable
         'password',
         'phone_number',
         'birth_date',
+        'profile_picture', // <<< TAMBAHKAN INI
     ];
 
     /**
